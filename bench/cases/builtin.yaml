@@ -1,0 +1,152 @@
+# The built-in tool suite: generic, public schemas and the cases an agent
+# harness meets every day. Nothing here is specific to any model. Every case
+# is offered the whole tool set, so the model has to pick.
+name: builtin
+
+tools:
+  - name: get_weather
+    description: Get the current weather for a location.
+    parameters:
+      type: object
+      required: [location]
+      properties:
+        location: {type: string, description: "City name, e.g. Paris"}
+        unit: {type: string, enum: [celsius, fahrenheit], description: Temperature unit}
+  - name: calculate
+    description: Evaluate an arithmetic expression and return the result.
+    parameters:
+      type: object
+      required: [expression]
+      properties:
+        expression: {type: string, description: "The expression, e.g. 2 * (3 + 4)"}
+  - name: read_file
+    description: Read a text file and return its contents.
+    parameters:
+      type: object
+      required: [path]
+      properties:
+        path: {type: string, description: Path of the file}
+  - name: write_file
+    description: Write text to a file, replacing it.
+    parameters:
+      type: object
+      required: [path, content]
+      properties:
+        path: {type: string, description: Path of the file}
+        content: {type: string, description: The text to write}
+  - name: web_search
+    description: Search the web.
+    parameters:
+      type: object
+      required: [query]
+      properties:
+        query: {type: string, description: The search query}
+        max_results: {type: integer, description: "How many results, 1 to 10"}
+  - name: create_calendar_event
+    description: Create a calendar event.
+    parameters:
+      type: object
+      required: [title, start, end]
+      properties:
+        title: {type: string, description: Event title}
+        start: {type: string, description: "Start, ISO 8601, e.g. 2026-10-12T10:00"}
+        end: {type: string, description: "End, ISO 8601"}
+        attendees:
+          type: array
+          items: {type: string}
+          description: Email addresses
+        location:
+          type: object
+          required: [name]
+          properties:
+            name: {type: string, description: Place name}
+            address: {type: string, description: Street address}
+  - name: lookup_account
+    description: Look up a customer account by its id.
+    parameters:
+      type: object
+      required: [account_id]
+      properties:
+        account_id: {type: string, description: "The 10-digit account id, as a string"}
+
+cases:
+  - name: pick the right tool, enum arg
+    messages:
+      - {role: user, content: "What's the weather in Paris right now, in celsius?"}
+    expect:
+      tools: [get_weather]
+      args:
+        - {path: location, contains: paris}
+        - {path: unit, equals: celsius}
+
+  - name: calculator
+    messages:
+      - {role: user, content: "Use the calculator to work out 1234 * 5678."}
+    expect:
+      tools: [calculate]
+      args:
+        - {path: expression, contains: "1234"}
+        - {path: expression, contains: "5678"}
+
+  - name: no call when none is needed
+    messages:
+      - {role: user, content: "Write a two-line poem about the sea. Do not use any tools."}
+    expect:
+      no_call: true
+
+  - name: two calls in one turn
+    messages:
+      - {role: user, content: "Check the current weather in Tokyo and in Berlin, both at once."}
+    expect:
+      tools: [get_weather, get_weather]
+      args:
+        - {path: location, contains: tokyo, any: true}
+        - {path: location, contains: berlin, any: true}
+
+  - name: follow-up after a tool result
+    messages:
+      - {role: user, content: "What's the weather in Oslo?"}
+      - role: assistant
+        tool_calls:
+          - {id: call_1, name: get_weather, arguments: {location: Oslo, unit: celsius}}
+      - {role: tool, tool_call_id: call_1, content: '{"location":"Oslo","temperature":7,"unit":"celsius","condition":"light rain"}'}
+    expect:
+      no_call: true
+
+  - name: argument copied exactly from context
+    messages:
+      - {role: user, content: "Our customer's account id is 4471029385. Keep it handy."}
+      - {role: assistant, content: "Noted: account id 4471029385."}
+      - {role: user, content: "Now look up that account."}
+    expect:
+      tools: [lookup_account]
+      args:
+        - {path: account_id, equals: "4471029385"}
+        - {path: account_id, matches: '^\d{10}$'}
+
+  - name: nested object and array args
+    messages:
+      - {role: user, content: "Create a calendar event titled 'Design review' from 2026-10-12T10:00 to 2026-10-12T11:00 at the Hub, 12 Main Street, with alice@example.com and bob@example.com."}
+    expect:
+      tools: [create_calendar_event]
+      args:
+        - {path: location, type: object}
+        - {path: location.name, contains: hub}
+        - {path: attendees, length: 2}
+
+  - name: integer arg
+    messages:
+      - {role: user, content: "Search the web for the latest Go release notes; I want 3 results."}
+    expect:
+      tools: [web_search]
+      args:
+        - {path: max_results, equals: 3}
+
+  - name: two required args
+    messages:
+      - {role: user, content: "Save the text 'hello world' to the file notes.txt."}
+    expect:
+      tools: [write_file]
+      args:
+        - {path: path, contains: notes.txt}
+        - {path: content, contains: hello world}
