@@ -1,0 +1,24 @@
+# vet and test on both platforms. The tests need no model and no network:
+# every endpoint is a fake OpenAI-compatible server started by the test.
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      # The current Go, not go.mod's minimum: Go 1.22's linker leaves out the
+      # LC_UUID load command, and the macOS runner's dyld refuses to start a
+      # test binary without it.
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - run: go vet ./...
+      - run: go test -count=1 ./...
