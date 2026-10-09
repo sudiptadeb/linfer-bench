@@ -270,7 +270,7 @@ type hbar struct {
 
 // hbars is a horizontal bar chart: a label, a bar and the value per item.
 func hbars(bars []hbar) template.HTML {
-	const w, labelW, valueW, rowH, barH = 640.0, 160.0, 70.0, 28.0, 18.0
+	const w, labelW, valueW, rowH, barH = 480.0, 110.0, 56.0, 30.0, 20.0
 	plotW := w - labelW - valueW - 10
 	maxV := 0.0
 	for _, b := range bars {
@@ -285,7 +285,7 @@ func hbars(bars []hbar) template.HTML {
 	for i, b := range bars {
 		y := 4 + rowH*float64(i)
 		bw := plotW * b.stat.Median / maxV
-		fmt.Fprintf(&s, `<text x="%.0f" y="%.1f" class="lbl" text-anchor="end">%s</text>`, labelW-8, y+barH/2+4, template.HTMLEscapeString(trunc(b.label, 24)))
+		fmt.Fprintf(&s, `<text x="%.0f" y="%.1f" class="lbl" text-anchor="end">%s</text>`, labelW-8, y+barH/2+4, template.HTMLEscapeString(trunc(b.label, 16)))
 		fmt.Fprintf(&s, `<path d="%s" fill="var(--s%d)"><title>%s: %.1f tok/s</title></path>`, barPath(labelW, y, bw, barH), b.slot, template.HTMLEscapeString(b.label), b.stat.Median)
 		if b.stat.N > 1 {
 			x0, x1 := labelW+plotW*b.stat.Min/maxV, labelW+plotW*b.stat.Max/maxV
@@ -306,7 +306,7 @@ type vseries struct {
 // vbars is a grouped vertical bar chart: a group per concurrency, a bar per
 // row, the value above each bar.
 func vbars(concs []int, series []vseries) template.HTML {
-	const w, h, left, right, top, bottom = 640.0, 240.0, 44.0, 10.0, 18.0, 28.0
+	const w, h, left, right, top, bottom = 480.0, 220.0, 40.0, 8.0, 18.0, 26.0
 	plotW, plotH := w-left-right, h-top-bottom
 	maxV := 0.0
 	for _, s := range series {
@@ -402,7 +402,7 @@ button.theme { background: var(--card); color: var(--fg); border: 1px solid var(
 ul.verdict { padding-left: 20px; } ul.verdict li { margin: 4px 0; }
 .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--fg2); margin: 8px 0; }
 .legend span::before, td.lab::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; background: var(--sw); }
-.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+.charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 16px; align-items: start; }
 .chart { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
 .chart h3 { margin: 0 0 2px; font-size: 14px; } .chart p { margin: 0 0 8px; color: var(--fg2); font-size: 12px; }
 svg text { fill: var(--fg); font-size: 12px; } svg .lbl { fill: var(--fg2); } svg .val { fill: var(--fg); font-size: 11px; } svg .axis { fill: var(--fg2); font-size: 11px; }
