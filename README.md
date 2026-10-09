@@ -1,13 +1,25 @@
 # linfer-bench
 
-linfer-bench measures OpenAI-compatible LLM endpoints and compares them,
-honestly. Point it at one or more `/v1` URLs, pick the models, and it
-measures decode and prefill speed the way an agent experiences them, scores a
-tool-calling suite case by case, checks needle-in-haystack retrieval, and
-writes a comparison: a terminal table with a short verdict, `report.md`,
+[![test](https://github.com/sudiptadeb/linfer-bench/actions/workflows/test.yml/badge.svg)](https://github.com/sudiptadeb/linfer-bench/actions/workflows/test.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/sudiptadeb/linfer-bench.svg)](https://pkg.go.dev/github.com/sudiptadeb/linfer-bench/bench)
+[![release](https://img.shields.io/github/v/tag/sudiptadeb/linfer-bench?label=release)](https://github.com/sudiptadeb/linfer-bench/tags)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
+**Benchmark any OpenAI-compatible endpoint the way an agent uses it, and
+compare runs honestly.**
+
+Point it at one or more `/v1` URLs, pick the models, and it measures decode
+and prefill speed the way an agent experiences them, scores a tool-calling
+suite case by case, checks needle-in-haystack retrieval, and writes a
+comparison: a terminal table with a short verdict, `report.md`,
 `results.json` and a self-contained `report.html`. Runs can be tagged and
 compared later, so a backend upgrade or a new quantisation gets a before and
 after instead of a feeling.
+
+<p align="center">
+  <img src="docs/img/run.gif" alt="a live quick run against a ~125B model on llama.cpp: speed cells, nine tool-calling cases and a needle check print as they finish, then the table and the verdict" width="100%">
+</p>
+<p align="center"><sub>A real <code>--quick</code> run against a ~125B model served by llama.cpp (75 s; waits over 2.5 s are shortened in the recording).</sub></p>
 
 It is the companion of [linfer](https://github.com/sudiptadeb/linfer), which
 starts each local backend with its serving profile and hands this library the
@@ -255,50 +267,35 @@ on a model, not models.
 
 ## A sample report
 
-The terminal, from a quick run of a 0.6B model served by llama.cpp and by
-oMLX on one Apple Silicon machine (small on purpose; the numbers are the
-format, not a recommendation):
+Two backends serving one ~125B mixture-of-experts model at 8-bit on a 256 GB
+M3 Ultra, llama.cpp against oMLX with multi-token prediction, at 8k and 32k
+context and 1, 4 and 8 streams (run by `linfer bench`, which starts each
+backend in turn). The top of `report.html`:
 
-```
-metric                         llama                mlx
-server                         llama.cpp            oMLX
-decode tok/s/stream 2k×1       259.8                348.7
-  server-reported              257.7                341.7
-  tokens per stream chunk      1.0                  32.0
-combined tok/s 2k×1            246.5                299.2
-cold ttft s 2k×1               0.18                 0.24
-prefill tok/s 2k×1             11761                8592
-  server-reported              12754                8885
-warm ttft s 2k                 0.06                 0.21
-decode tok/s/stream 2k×4       247.3 (247.0–247.5)  174.6 (165.8–178.1)
-  server-reported              245.3 (245.0–245.5)  169.4 (153.2–174.4)
-  tokens per stream chunk      1.0 (1.0–1.0)        6.6 (6.4–6.7)
-combined tok/s 2k×4            463.7                526.5
-cold ttft s 2k×4               0.53 (0.33–0.72)     0.68 (0.23–0.94)
-prefill tok/s 2k×4             3989 (2921–6296)     3198 (2242–9171)
-tools accuracy                 89% (8/9)            100% (9/9)
-  valid / right tool / schema  7 / 7 / 7 of 7       7 / 7 / 7 of 7
-  no-call correct              2 of 2               2 of 2
-  leaks / http errors          0 / 0                0 / 0
-needle found                   1 of 1               1 of 1
-failures                       0                    0
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/img/report-dark.png">
+    <img src="docs/img/report-light.png" alt="report.html: the verdict (oMLX 2.73 times faster on one stream at 8k, llama.cpp 1.72 times the combined output at 32k with 8 streams, tools 9 of 9 and needle 6 of 6 on both) above bar charts of single-stream decode and of combined output per concurrency" width="100%">
+  </picture>
+</p>
 
-- fastest single stream (2k context): mlx at 348.7 tok/s, 1.34× llama (259.8)
-- most combined output (2k context, 4 streams): mlx at 526.5 tok/s, 1.14× llama (463.7)
-- tool accuracy: llama 89% (8/9), mlx 100% (9/9)
-- needle retrieved: llama 1/1, mlx 1/1
-- single run per cell: no spread to judge noise by, so treat differences under ~10% as unproven
-```
+And the terminal, where the clear best of a line is green:
 
-Note the oMLX stream's 32 tokens per chunk at one stream, and that its
-server-reported decode sits within 2% of the client's figure once the first
-chunk is counted by its length rather than as one token.
+<details>
+<summary>the full terminal table</summary>
+<p align="center"><img src="docs/img/table.png" alt="the terminal comparison table for llama.cpp against oMLX" width="760"></p>
+</details>
 
-With colour on a terminal, the clear best of a line is green and failures
-are red. `report.html` has the same table, bar charts of single-stream
-decode and of combined output per concurrency, sortable tables of every cell,
-case and retrieval, the machine and each target's details, in light or dark;
-`results.json` (schema 1) holds every number.
+Note oMLX's 12.4 tokens per stream chunk on one stream: per-chunk client
+timing would have flattered it, and the server-reported decode sits within
+0.3% of the client's figure because the first chunk is counted by its length
+rather than as one token. Note too the cold TTFT ranges at 8 streams: oMLX
+prefills new prompts one at a time, which is why combined output is measured
+on the warm pass.
+
+`report.html` also has sortable tables of every cell, case and retrieval,
+the machine and each target's details, in light or dark; `results.json`
+(schema 1) holds every number.
 
 ## Library
 
